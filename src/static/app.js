@@ -20,11 +20,29 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const spotsLeft = details.max_participants - details.participants.length;
 
+        // Build participants list HTML
+        let participantsHTML = "<ul class='participants-list'>";
+        if (details.participants.length === 0) {
+          participantsHTML += "<li class='no-participants'>No participants yet</li>";
+        } else {
+          details.participants.forEach(email => {
+            participantsHTML += `<li data-email="${email}">
+              <span class="participant-email">${email}</span>
+              <span class="delete-participant" title="Remove participant">&#128465;</span>
+            </li>`;
+          });
+        }
+        participantsHTML += "</ul>";
+
         activityCard.innerHTML = `
           <h4>${name}</h4>
           <p>${details.description}</p>
           <p><strong>Schedule:</strong> ${details.schedule}</p>
           <p><strong>Availability:</strong> ${spotsLeft} spots left</p>
+          <div class="participants-section">
+            <strong>Participants:</strong>
+            ${participantsHTML}
+          </div>
         `;
 
         activitiesList.appendChild(activityCard);
@@ -34,6 +52,37 @@ document.addEventListener("DOMContentLoaded", () => {
         option.value = name;
         option.textContent = name;
         activitySelect.appendChild(option);
+        // Add delete event listeners for participants
+        const participantItems = activityCard.querySelectorAll(".participants-list li[data-email]");
+        participantItems.forEach(li => {
+          const deleteBtn = li.querySelector(".delete-participant");
+          deleteBtn.addEventListener("click", async (e) => {
+            e.stopPropagation();
+            const participantEmail = li.getAttribute("data-email");
+            try {
+              const response = await fetch(`/activities/${encodeURIComponent(name)}/signup?email=${encodeURIComponent(participantEmail)}`, {
+                method: "DELETE"
+              });
+              if (response.ok) {
+                li.remove();
+                messageDiv.textContent = `Removed ${participantEmail} from ${name}`;
+                messageDiv.className = "success";
+              } else {
+                const result = await response.json();
+                messageDiv.textContent = result.detail || "Failed to remove participant.";
+                messageDiv.className = "error";
+              }
+              messageDiv.classList.remove("hidden");
+              setTimeout(() => {
+                messageDiv.classList.add("hidden");
+              }, 5000);
+            } catch (error) {
+              messageDiv.textContent = "Failed to remove participant. Please try again.";
+              messageDiv.className = "error";
+              messageDiv.classList.remove("hidden");
+            }
+          });
+        });
       });
     } catch (error) {
       activitiesList.innerHTML = "<p>Failed to load activities. Please try again later.</p>";
